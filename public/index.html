@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Подарочные наборы</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root { --pad: 14px; --radius: 16px; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#fff; color:#111; }
+    header { position:sticky; top:0; background:#fff; border-bottom:1px solid #eee; padding:10px var(--pad); z-index:10; }
+    .topbar { display:flex; gap:10px; align-items:center; }
+    input[type="search"] { flex:1; padding:10px 12px; border:1px solid #ddd; border-radius: 12px; font-size:16px; }
+    .grid { display:grid; grid-template-columns: repeat(2,1fr); gap:10px; padding:10px; }
+    .card { border:1px solid #eee; border-radius: var(--radius); overflow:hidden; background:#fff; display:flex; flex-direction:column; }
+    .thumb { aspect-ratio:1/1; width:100%; object-fit:cover; }
+    .meta { padding:10px; display:flex; flex-direction:column; gap:6px; }
+    .title { font-size:14px; line-height:1.2; height:34px; overflow:hidden; }
+    .price { font-weight:700; font-size:16px; }
+    .btn { border:none; background:#8a2be2; color:#fff; padding:10px 12px; border-radius:12px; font-weight:600; cursor:pointer; }
+    .muted { color:#777; font-size:12px; }
+
+    .page { display:none; }
+    .page.active { display:block; }
+
+    .gallery { position:relative; }
+    .slides { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:6px; padding:10px; }
+    .slides img { width:100%; height:auto; border-radius:12px; flex:0 0 100%; scroll-snap-align:center; object-fit:cover; }
+
+    .padded { padding:12px; }
+    .desc { white-space:pre-wrap; color:#333; font-size:14px; }
+    .pill { display:inline-block; background:#f5f5f5; padding:6px 10px; border-radius:999px; font-size:12px; margin-right:6px; }
+
+    .qty { display:flex; align-items:center; gap:8px; }
+    .qty input { width:56px; padding:8px; font-size:16px; text-align:center; border:1px solid #ddd; border-radius:10px; }
+
+    form { display:flex; flex-direction:column; gap:10px; }
+    input, textarea, select { padding:12px; border:1px solid #ddd; border-radius:12px; font-size:16px; }
+    textarea { min-height:80px; }
+    .section-title { font-weight:700; margin:12px 0 4px; }
+    .link { color:#8a2be2; text-decoration:none; font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <input type="search" id="search" placeholder="Поиск по каталогу" />
+      <a id="toCatalog" class="link" href="#">Каталог</a>
+    </div>
+  </header>
+
+  <!-- Каталог -->
+  <main id="catalog" class="page active">
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <!-- Товар -->
+  <section id="product" class="page">
+    <div class="gallery">
+      <div class="slides" id="slides"></div>
+    </div>
+    <div class="padded">
+      <div class="title" id="pTitle" style="font-size:18px; font-weight:700; margin-bottom:4px;"></div>
+      <div class="muted" id="pSku"></div>  <div style="display:flex; align-items:center; justify-content:space-between; margin:10px 0;">
+        <div class="price" id="pPrice"></div>
+        <div class="qty">
+          <span>Кол-во</span>
+          <input id="pQty" type="number" min="1" value="1" />
+        </div>
+      </div>
+      <div id="pTags"></div>
+      <div class="section-title">Описание</div>
+      <div class="desc" id="pDesc"></div>
+
+      <div class="section-title">Доставка</div>
+      <div class="muted">Курьером или самовывоз. Срок и стоимость уточним после заявки.</div>
+
+      <div class="section-title">Ваши контакты</div>
+      <form id="orderForm">
+        <input id="cName" placeholder="Имя" required />
+        <input id="cPhone" placeholder="Телефон" required />
+        <select id="dMethod">
+          <option value="Доставка курьером">Доставка курьером</option>
+          <option value="Самовывоз">Самовывоз</option>
+        </select>
+        <input id="dAddress" placeholder="Адрес (если доставка)" />
+        <textarea id="dComment" placeholder="Комментарий к заказу"></textarea>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    const PRODUCTS = [
+      {
+        sku: "gift001",
+        title: "Подарочный набор Чай + Термокружка",
+        price: 2990,
+        images: [
+          "https://via.placeholder.com/1200x1200?text=Tea+Set+1",
+          "https://via.placeholder.com/1200x1200?text=Tea+Set+2"
+        ],
+        tags: ["топ продаж", "в наличии"],
+        desc: "Ароматный китайский чай + термокружка 450мл в подарочной упаковке."
+      },
+      {
+        sku: "gift002",
+        title: "Набор Кофеман: термос + кофе",
+        price: 3490,
+        images: [
+          "https://via.placeholder.com/1200x1200?text=Coffee+Set+1",
+          "https://via.placeholder.com/1200x1200?text=Coffee+Set+2"
+        ],
+        tags: ["хит", "подарок"],
+        desc: "Термос 500мл, кофе молотый, открытка. Подарочный набор."
+      }
+    ];
+
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.expand();
+      tg.setHeaderColor("#ffffff");
+      tg.setBackgroundColor("#ffffff");
+    }
+
+    const $ = (s) => document.querySelector(s);
+    const catalogPage = $("#catalog");
+    const productPage = $("#product");
+    const grid = $("#grid");
+    const search = $("#search");
+
+    const slides = $("#slides");
+    const pTitle = $("#pTitle");
+    const pSku = $("#pSku");
+    const pPrice = $("#pPrice");
+    const pDesc = $("#pDesc");
+    const pTags = $("#pTags");
+    const pQty = $("#pQty");
+
+    const orderForm = $("#orderForm");
+    $("#toCatalog").addEventListener("click", (e) => { e.preventDefault(); showCatalog(); });
+
+    function currency(n){
+      return new Intl.NumberFormat("ru-RU").format(n) + " ₽";
+    }
+
+    function renderCatalog(list){
+      grid.innerHTML = "";
+      list.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <img class="thumb" src="${p.images[0]}" alt="${p.title}"/>
+          <div class="meta">
+            <div class="title">${p.title}</div>
+            <div class="price">${currency(p.price)}</div>
+            <button class="btn">Купить</button>
+          </div>`;
+        card.querySelector(".btn").addEventListener("click", () => openProduct(p.sku));
+        card.querySelector(".thumb").addEventListener("click", () => openProduct(p.sku));
+        grid.appendChild(card);
+      });
+    }
+
+    function showCatalog(){
+      catalogPage.classList.add("active");
+      productPage.classList.remove("active");
+      if (tg) tg.MainButton.hide();
+      renderCatalog(PRODUCTS.filter(filterByQuery));
+    }
+
+    function filterByQuery(p){
+      const q = search.value.trim().toLowerCase();
+      if (!q) return true;
+      return p.title.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+    }
+
+    search.addEventListener("input", () => renderCatalog(PRODUCTS.filter(filterByQuery))); function openProduct(sku){
+      const p = PRODUCTS.find(x => x.sku === sku);
+      if (!p) return;
+      catalogPage.classList.remove("active");
+      productPage.classList.add("active");
+
+      slides.innerHTML = "";
+      p.images.forEach(src => {
+        const img = document.createElement("img");
+        img.src = src; img.alt = p.title;
+        slides.appendChild(img);
+      });
+
+      pTitle.textContent = p.title;
+      pSku.textContent = `SKU: ${p.sku}`;
+      pPrice.textContent = currency(p.price);
+      pDesc.textContent = p.desc;
+      pTags.innerHTML = (p.tags||[]).map(t => `<span class="pill">${t}</span>`).join('');
+      pQty.value = 1;
+
+      if (tg) {
+        tg.MainButton.setText("Заказать");
+        tg.MainButton.onClick(() => submitOrder(p));
+        tg.MainButton.show();
+      }
+    }
+
+    function param(name){
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    }
+
+    function submitOrder(p){
+      const payload = {
+        sku: p.sku,
+        title: p.title,
+        price: p.price,
+        qty: Math.max(1, parseInt(pQty.value||"1")),
+        customer: {
+          name: document.querySelector("#cName").value.trim(),
+          phone: document.querySelector("#cPhone").value.trim(),
+        },
+        delivery: {
+          method: document.querySelector("#dMethod").value,
+          address: document.querySelector("#dAddress").value.trim(),
+          comment: document.querySelector("#dComment").value.trim(),
+        }
+      };
+
+      if (!payload.customer.name || !payload.customer.phone){
+        if (tg) tg.showPopup({ title: "Заполните данные", message: "Укажите имя и телефон", buttons:[{type:"close"}]});
+        return;
+      }
+
+      if (tg) {
+        tg.sendData(JSON.stringify(payload));
+        tg.close();
+      } else {
+        alert("WebApp работает только внутри Telegram");
+      }
+    }
+
+    const initialSku = param("sku");
+    renderCatalog(PRODUCTS);
+    if (initialSku) openProduct(initialSku);
+  </script>
+</body>
+</html>
