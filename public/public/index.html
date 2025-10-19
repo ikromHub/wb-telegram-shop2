@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Магазин подарков</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="top-menu">
+      <button class="menu-btn" data-page="catalog">📦 Каталог</button>
+      <button class="menu-btn" data-page="opt">📦 Оптом</button>
+      <button class="menu-btn" data-page="retail">🛒 Розница</button>
+      <button class="menu-btn" data-page="warehouse">🏬 Склад</button>
+    </header>
+
+    <main id="page-content">
+      <!-- сюда будет динамически подгружаться контент -->
+    </main>
+
+    <footer class="bottom-nav">
+      <button class="nav-btn" data-page="home">🏠 Главная</button>
+      <button class="nav-btn" data-page="cart">🛍 Корзина</button>
+      <button class="nav-btn" data-page="profile">👤 Профиль</button>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
