@@ -2,14 +2,16 @@ import express from "express";
 import { Telegraf } from "telegraf";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const OWNER_ID = Number(process.env.OWNER_ID);
-const BASE_URL = process.env.BASE_URL;
+const OWNER_ID  = Number(process.env.OWNER_ID);
+const BASE_URL  = process.env.BASE_URL;
 
 if (!BOT_TOKEN) throw new Error("BOT_TOKEN is required");
-if (!OWNER_ID) throw new Error("OWNER_ID is required");
+if (!OWNER_ID)  throw new Error("OWNER_ID is required");
+if (!BASE_URL)  throw new Error("BASE_URL is required");
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
+const HOOK_PATH = "/tg"; // путь вебхука
 
 app.use(express.json());
 app.use(express.static("public"));
@@ -41,6 +43,7 @@ bot.on("message", async (ctx) => {
     try {
       const data = JSON.parse(msg.web_app_data.data);
       const { sku, title, price, qty, customer = {}, delivery = {} } = data;
+
       const text =
         `🆕 *Заявка из мини-аппы*\n\n` +
         `*Товар:* ${title} (SKU: ${sku})\n` +
@@ -61,7 +64,20 @@ bot.on("message", async (ctx) => {
   }
 });
 
-bot.launch().then(() => console.log("Bot started"));
+// ---- режим запуска: Render = webhook, локально = polling ----
+(async () => {
+  if (process.env.RENDER) {
+    // на Render используем вебхук
+    const fullWebhookUrl = `${BASE_URL}${HOOK_PATH}`;
+    await bot.telegram.setWebhook(fullWebhookUrl);
+    app.post(HOOK_PATH, (req, res) => bot.handleUpdate(req.body, res));
+    console.log("Webhook mode. URL:", fullWebhookUrl);
+  } else {
+    // локально — polling
+    await bot.launch();
+    console.log("Polling mode. Bot started");
+  }
+})();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Web server on :${PORT}`));
